@@ -136,7 +136,75 @@ https://www.thymeleaf.org/apidocs/thymeleaf/3.0.11.RELEASE/org/thymeleaf/express
 值非空，值非0的数字，值字符串，但是不是false，off，no
 值不是boolean值，数字，character或者字符串
 Thymeleaf表单
-
-
-
+添加书的请求
+用到了post请求，前端的模板为label+input，其中input加上不同的name
+<form action="/book/save" method="POST">
+后端用
+@PostMapping("/book/save")
+  public String saveBook(Book book){
+    books.add(book);
+    return "saveBookSuccess";
+  }
+Validation验证
+JSR 380
+<dependency>
+  <groupId>jakarta.validation</groupId>
+  <artifactId>jakarta.validation-api</artifactId>
+  <version>2.0.1</version>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-validation</artifactId>
+</dependency>
+JSR可以直接在类的属性上面添加注解来进行校验
+NotNull
+AssertTrue是否为true
+Size约定大小
+Min最小长度字符串
+Max最大
+Email是否为邮箱
+NotEmpty不允许为null或者空，字符串集合，Map数组List
+NotBlank不允许为null和空格
+使用规范Min(value = 18, message = "你的年龄必须大于等于18岁")
+执行校验
+@PostMapping("/user/save")
+    public String saveUser(@Valid User user, BindingResult errors) {
+        if (errors.hasErrors()) {
+            // 如果校验不通过，返回用户编辑页面
+            return "user/addUser";
+        }
+        // 校验通过，返回成功页面
+        return "user/addUserSuccess";
+    }
+显示错误信息
+后端添加
+User user = new User();
+model.addAttribute("user",user);
+前端添加
+<form action="/user/save" th:object="${user}" method="POST">
+css添加
+.error {
+  color: red;
+}
+单独字段属性添加，如果这个属性有错误则就加上这个错误类
+<div th:classappend="${#fields.hasErrors('name')} ? 'error' : ''">
+加上错误信息
+<p th:if="${#fields.hasErrors('age')}" th:errors="*{age}"></p>
+th:object="${user}"设置过了，所以可以用*{age}代替
+一般错的时候，我们还希望显示上一次输入的内容
+<div th:classappend="${#fields.hasErrors('age')} ? 'error' : ''">
+  <label>年龄:</label>
+  <input type="text" th:field="*{age}" />
+  <p th:if="${#fields.hasErrors('age')}" th:errors="*{age}"></p>
+</div>
+页面布局
+布局组件，使用th:include + th:replace
+首先创建一个组件模板layout，然后加上header和container和footer
+给container我们加上
+<div class="container" th:include="::content">页面正文内容</div>
+这样当我们套用的时候只有container不一样，剩下的组件都一样
+现在我们要在list里面使用
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="layout">
+开头加上replace，后面的layout是组件文件
+<div th:fragment="content">这里是正文部分，也就是不套用组件部分
 

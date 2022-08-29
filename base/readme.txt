@@ -207,4 +207,12 @@ th:object="${user}"设置过了，所以可以用*{age}代替
 <html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="layout">
 开头加上replace，后面的layout是组件文件
 <div th:fragment="content">这里是正文部分，也就是不套用组件部分
-
+使用Logger
+在application.properties文件中加上
+logging.level.root=info
+也可以为不同的包定义不同类别
+一般日志优先级类别有error，warn，info，debug
+设置高级优先级后更低的就不再输出了
+private static final Logger LOG = LoggerFactory.getLogger(SongListControl.class);
+LOG.info("SongListControl 启动啦");
+info和级别一一对应

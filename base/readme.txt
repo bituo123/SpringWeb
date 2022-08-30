@@ -216,3 +216,171 @@ logging.level.root=info
 private static final Logger LOG = LoggerFactory.getLogger(SongListControl.class);
 LOG.info("SongListControl 启动啦");
 info和级别一一对应
+自定义配置application.properties
+song.name=God is a girl
+在对象类里的属性添加
+@Value("${song.name}")
+private String songName;
+Cookie读取
+@RequestMapping("/songlist")
+public Map index(HttpServletRequest request) {
+  Map returnData = new HashMap();
+  returnData.put("result", "this is song list");
+  returnData.put("author", songAuthor);
+  Cookie[] cookies = request.getCookies();
+  returnData.put("cookies", cookies);
+  return returnData;
+}
+使用注解读取Cookie
+@RequestMapping("/songlist")
+public Map index(@CookieValue("JSESSIONID") String jSessionId) {
+  Map returnData = new HashMap();
+  returnData.put("result", "this is song list");
+  returnData.put("author", songAuthor);
+  returnData.put("JSESSIONID", jSessionId);
+  return returnData;
+}
+写Cookie
+@RequestMapping("/songlist")
+public Map index(HttpServletResponse response) {
+  Map returnData = new HashMap();
+  returnData.put("result", "this is song list");
+  returnData.put("name", songName);
+  Cookie cookie = new Cookie("sessionId","CookieTestInfo");
+  // 设置的是 cookie 的域名，就是会在哪个域名下生成 cookie 值
+  cookie.setDomain("youkeda.com");
+  // 是 cookie 的路径，一般就是写到 / ，不会写其他路径的
+  cookie.setPath("/");
+  // 设置cookie 的最大存活时间，-1 代表随浏览器的有效期，也就是浏览器关闭掉，这个 cookie 就失效了。
+  cookie.setMaxAge(-1);
+  // 设置是否只能服务器修改，浏览器端不能修改，安全有保障
+  cookie.setHttpOnly(false);
+  response.addCookie(cookie);
+  returnData.put("message", "add cookie successful");
+  return returnData;
+}
+Session读取
+首先登陆的信息类
+public class UserLoginInfo implements Serializable {
+  private String userId;
+  private String userName;
+}
+读取
+@RequestMapping("/songlist")
+public Map index(HttpServletRequest request, HttpServletResponse response) {
+  Map returnData = new HashMap();
+  returnData.put("result", "this is song list");
+  // 取得 HttpSession 对象
+  HttpSession session = request.getSession();
+  // 读取登录信息
+  UserLoginInfo userLoginInfo = (UserLoginInfo)session.getAttribute("userLoginInfo");
+  if (userLoginInfo == null) {
+    // 未登录
+    returnData.put("loginInfo", "not login");
+  } else {
+    // 已登录
+    returnData.put("loginInfo", "already login");
+  }
+  return returnData;
+}
+写操作
+@RequestMapping("/loginmock")
+public Map loginMock(HttpServletRequest request, HttpServletResponse response) {
+  Map returnData = new HashMap();
+  // 假设对比用户名和密码成功
+  // 仅演示的登录信息对象
+  UserLoginInfo userLoginInfo = new UserLoginInfo();
+  userLoginInfo.setUserId("12334445576788");
+  userLoginInfo.setUserName("ZhangSan");
+  // 取得 HttpSession 对象
+  HttpSession session = request.getSession();
+  // 写入登录信息
+  session.setAttribute("userLoginInfo", userLoginInfo);
+  returnData.put("message", "login successful");
+  return returnData;
+}
+Session配置
+@Configuration
+public class SpringHttpSessionConfig {
+  @Bean
+  public TestBean testBean() {
+    return new TestBean();
+  }
+}
+Configuration表示这是配置类
+Bean会把方法返回的对象实例注册成Bean
+添加依赖
+<dependency>
+    <groupId>org.springframework.session</groupId>
+    <artifactId>spring-session-core</artifactId>
+</dependency>
+配置类
+@Configuration
+@EnableSpringHttpSession
+public class SpringHttpSessionConfig {
+  @Bean
+  public CookieSerializer cookieSerializer() {
+    DefaultCookieSerializer serializer = new DefaultCookieSerializer();
+    serializer.setCookieName("JSESSIONID");
+    // 用正则表达式配置匹配的域名，可以兼容 localhost、127.0.0.1 等各种场景
+    serializer.setDomainNamePattern("^.+?\\.(\\w+\\.[a-z]+)$");
+    serializer.setCookiePath("/");
+    serializer.setUseHttpOnlyCookie(false);
+    // 最大生命周期的单位是秒
+    serializer.setCookieMaxAge(24 * 60 * 60);
+    return serializer;
+  }
+
+  // 当前存在内存中
+  @Bean
+  public MapSessionRepository sessionRepository() {
+    return new MapSessionRepository(new ConcurrentHashMap<>());
+  }
+}
+其中EnableSpringHttpSession开启Session
+CookieSerializer读写Cookies的SessionId信息
+MapSessionRepository是Session信息存储在服务器的仓库
+Request拦截器
+HandlerInterceptor拦截器，主要用于拦截没有登陆的请求
+创建拦截器
+1 Controller方法执行之前，是否登陆的验证放在preHandle里面处理
+2 Controller执行后，比如记录日志，统计方法执行，就在postHandle中处理
+3 整个请求完成后，不常用，在afterCompletion中处理
+public class InterceptorDemo implements HandlerInterceptor {
+
+  // Controller方法执行之前
+  @Override
+  public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+    // 只有返回true才会继续向下执行，返回false取消当前请求
+    return true;
+  }
+  //Controller方法执行之后
+  @Override
+  public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
+      ModelAndView modelAndView) throws Exception {
+  }
+  // 整个请求完成后（包括Thymeleaf渲染完毕）
+  @Override
+  public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+  }
+}
+实现WebMvcConfigurer，实现addInterceptors方法用于管理拦截器
+设置拦截器范围addPathPatterns("/**")
+也可以用排除excludePathPatterns()
+@Configuration
+public class WebAppConfigurerDemo implements WebMvcConfigurer {
+  @Override
+  public void addInterceptors(InterceptorRegistry registry) {
+    // 多个拦截器组成一个拦截器链
+    // 仅演示，设置所有 url 都拦截
+    registry.addInterceptor(new UserInterceptor()).addPathPatterns("/**");
+  }
+}
+通常拦截器会放在一个包比如interceptor用于管理拦截器放在config
+实战用户登陆
+@PostMapping(path = "/authenticate")
+public String loginAction(@RequestParam String name, @RequestParam String password) {
+  return user.toString();
+}
+<form action="" method="post">
+页面跳转
